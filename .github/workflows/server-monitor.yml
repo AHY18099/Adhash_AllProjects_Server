@@ -47,6 +47,7 @@ jobs:
           EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}
           EMAIL_TO=${{ secrets.EMAIL_TO }}
           SERVER_URLS=${{ secrets.SERVER_URLS }}
+          REQUIRED_SERVER_URLS=https://20.1.198.58/|AutoChecker - Production Server
           CHECK_INTERVAL_MINUTES=60
           SEND_ONLY_ON_CHANGE=true
           EOF
@@ -72,4 +73,3 @@ jobs:
             *.log
           retention-days: 7
           if-no-files-found: ignore
-

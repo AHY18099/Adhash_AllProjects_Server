@@ -41,6 +41,62 @@ interface PreviousStatus {
   timestamp: string;
 }
 
+interface ServerEntry {
+  url: string;
+  name?: string;
+}
+
+interface MergeServerEntriesResult {
+  entries: ServerEntry[];
+  addedRequiredServerCount: number;
+}
+
+function parseServerEntries(serverUrlsString: string): ServerEntry[] {
+  return serverUrlsString
+    .split(',')
+    .map(entry => entry.trim())
+    .filter(Boolean)
+    .map(entry => {
+      const parts = entry.split('|');
+      return {
+        url: parts[0].trim(),
+        name: parts.length > 1 ? parts[1].trim() : undefined
+      };
+    })
+    .filter(entry => entry.url.length > 0);
+}
+
+function normalizeServerUrl(url: string): string {
+  const trimmedUrl = url.trim();
+
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    const pathname = parsedUrl.pathname.replace(/\/+$/, '');
+    const normalizedPathname = pathname || '/';
+
+    return `${parsedUrl.protocol.toLowerCase()}//${parsedUrl.host.toLowerCase()}${normalizedPathname}${parsedUrl.search}${parsedUrl.hash}`;
+  } catch (error) {
+    return trimmedUrl.replace(/\/+$/, '');
+  }
+}
+
+function mergeServerEntries(primary: ServerEntry[], required: ServerEntry[]): MergeServerEntriesResult {
+  const merged = [...primary];
+  const seen = new Set(primary.map(entry => normalizeServerUrl(entry.url)));
+  let addedRequiredServerCount = 0;
+
+  for (const entry of required) {
+    const normalizedUrl = normalizeServerUrl(entry.url);
+    if (!seen.has(normalizedUrl)) {
+      merged.push(entry);
+      seen.add(normalizedUrl);
+      addedRequiredServerCount += 1;
+    }
+  }
+
+  return { entries: merged, addedRequiredServerCount };
+}
+
 function extractServerName(url: string): string {
   // Special cases for IP addresses
   if (url.includes('20.62.109.239')) return 'Partsouq';
@@ -801,16 +857,14 @@ async function main() {
   };
 
   const serverUrlsString = process.env.SERVER_URLS || 'http://20.7.146.191:3000/';
+  const requiredServerUrlsString = process.env.REQUIRED_SERVER_URLS || '';
+  const configuredServerEntries = parseServerEntries(serverUrlsString);
+  const requiredServerEntries = parseServerEntries(requiredServerUrlsString);
+  const { entries: serverEntries, addedRequiredServerCount } = mergeServerEntries(configuredServerEntries, requiredServerEntries);
 
-  // Parse server URLs with optional custom names (format: URL|Name)
-  const serverEntries = serverUrlsString.split(',').map(entry => {
-    const trimmed = entry.trim();
-    const parts = trimmed.split('|');
-    return {
-      url: parts[0].trim(),
-      name: parts.length > 1 ? parts[1].trim() : undefined
-    };
-  });
+  if (addedRequiredServerCount > 0) {
+    console.log(`🛡️ Required server safeguard: ${addedRequiredServerCount} required server(s) not in configured list were auto-added`);
+  }
 
   const sendOnlyOnChange = process.env.SEND_ONLY_ON_CHANGE === 'true';
 
