@@ -46,6 +46,11 @@ interface ServerEntry {
   name?: string;
 }
 
+interface MergeServerEntriesResult {
+  entries: ServerEntry[];
+  addedRequiredServerCount: number;
+}
+
 function parseServerEntries(serverUrlsString: string): ServerEntry[] {
   return serverUrlsString
     .split(',')
@@ -62,10 +67,20 @@ function parseServerEntries(serverUrlsString: string): ServerEntry[] {
 }
 
 function normalizeServerUrl(url: string): string {
-  return url.trim().replace(/\/+$/, '').toLowerCase();
+  const trimmedUrl = url.trim();
+
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    const pathname = parsedUrl.pathname.replace(/\/+$/, '');
+    const normalizedPathname = pathname || '/';
+
+    return `${parsedUrl.protocol.toLowerCase()}//${parsedUrl.host.toLowerCase()}${normalizedPathname}${parsedUrl.search}${parsedUrl.hash}`;
+  } catch (error) {
+    return trimmedUrl.replace(/\/+$/, '');
+  }
 }
 
-function mergeServerEntries(primary: ServerEntry[], required: ServerEntry[]): { entries: ServerEntry[]; addedRequiredServerCount: number } {
+function mergeServerEntries(primary: ServerEntry[], required: ServerEntry[]): MergeServerEntriesResult {
   const merged = [...primary];
   const seen = new Set(primary.map(entry => normalizeServerUrl(entry.url)));
   let addedRequiredServerCount = 0;
