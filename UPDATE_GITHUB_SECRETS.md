@@ -2,7 +2,7 @@
 
 ## ⚠️ IMPORTANT: You Need to Update GitHub Secrets
 
-The server list has been expanded from **3 servers** to **22 servers**.
+The server list has been expanded from **3 servers** to **23 servers**.
 
 You need to update the `SERVER_URLS` secret in GitHub to include all the new domains.
 
@@ -26,7 +26,7 @@ Visit: https://github.com/Thenilavan-G/Adhash_AutoChecker_Server/settings/secret
 **Copy this entire value** (one long line, no line breaks):
 
 ```
-http://20.7.146.191:3000/,http://20.15.121.70:3000,http://20.62.109.239:3000,https://superadmin.wavedin.app/,https://mobileliveapi.wavedin.app/,https://gopocket.algomax.co/,https://metcalf.ai/,https://zapcrm.io/,https://lead.zapcrm.io/,https://api.zapcrm.io/,https://adhashtech.com/,https://www.zapai.us/,https://humee.com/,https://api.humee.com/,https://spark.synctag.com/,https://api.sendmovieclips.com/,https://admin.aisignpro.com/,https://api.aisignpro.com/,https://manage.autochecker.com/,https://manageadminapi.autochecker.com/,https://managemobileapi.autochecker.com/,https://ebaydev.autochecker.com/
+http://20.7.146.191:3000/,http://20.1.198.58/,http://20.15.121.70:3000,http://20.62.109.239:3000,https://superadmin.wavedin.app/,https://mobileliveapi.wavedin.app/,https://gopocket.algomax.co/,https://metcalf.ai/,https://zapcrm.io/,https://lead.zapcrm.io/,https://api.zapcrm.io/,https://adhashtech.com/,https://www.zapai.us/,https://humee.com/,https://api.humee.com/,https://spark.synctag.com/,https://api.sendmovieclips.com/,https://admin.aisignpro.com/,https://api.aisignpro.com/,https://manage.autochecker.com/,https://manageadminapi.autochecker.com/,https://managemobileapi.autochecker.com/,https://ebaydev.autochecker.com/
 ```
 
 ### Step 4: Save
@@ -42,10 +42,10 @@ After updating, test the workflow:
 1. Go to: https://github.com/Thenilavan-G/Adhash_AutoChecker_Server/actions
 2. Click "Server Health Monitor"
 3. Click "Run workflow"
-4. Wait 2-3 minutes (checking 22 servers takes longer)
+4. Wait 2-3 minutes (checking 23 servers takes longer)
 5. Check email at qateam@adhashtech.com
 
-You should see a report with **22 servers** listed.
+You should see a report with **23 servers** listed.
 
 ---
 
@@ -66,13 +66,14 @@ You should see a report with **22 servers** listed.
 12. https://api.aisignpro.com/
 13. https://manage.autochecker.com/
 
-### ⚠️ Unhealthy Servers (6) - ACTIVE but returning 404:
+### ⚠️ Unhealthy Servers (7) - ACTIVE but returning 404:
 1. http://20.7.146.191:3000/
-2. http://20.15.121.70:3000
-3. https://api.zapcrm.io/
-4. https://manageadminapi.autochecker.com/
-5. https://managemobileapi.autochecker.com/
-6. https://ebaydev.autochecker.com/
+2. http://20.1.198.58/
+3. http://20.15.121.70:3000
+4. https://api.zapcrm.io/
+5. https://manageadminapi.autochecker.com/
+6. https://managemobileapi.autochecker.com/
+7. https://ebaydev.autochecker.com/
 
 ### 🚨 Down Servers (3) - INACTIVE/Not Responding:
 1. http://20.62.109.239:3000
@@ -123,9 +124,9 @@ Based on the test, these servers are currently **ACTIVE but UNHEALTHY** (returni
 
 ## ✅ What's Already Done
 
-- [x] ✅ Local `.env` file updated with 22 servers
+- [x] ✅ Local `.env` file updated with 23 servers
 - [x] ✅ Tested locally - all servers checked successfully
-- [x] ✅ Email sent with 22 servers report
+- [x] ✅ Email sent with 23 servers report
 - [x] ✅ Code committed and ready to push
 - [ ] ⏳ **YOU NEED TO DO:** Update GitHub Secret `SERVER_URLS`
 - [ ] ⏳ **YOU NEED TO DO:** Test workflow on GitHub Actions
@@ -136,11 +137,10 @@ Based on the test, these servers are currently **ACTIVE but UNHEALTHY** (returni
 
 Based on current status, the email subject will be:
 
-**"🚨 Server Alert: 3 Down, 6 Unhealthy"**
+**"🚨 Server Alert: 3 Down, 7 Unhealthy"**
 
 This will change as server statuses change.
 
 ---
 
-**After updating the GitHub Secret, your monitoring system will check all 22 servers daily at 4:00 PM IST!** 🚀
-
+**After updating the GitHub Secret, your monitoring system will check all 23 servers daily at 4:00 PM IST!** 🚀
