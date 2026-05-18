@@ -104,6 +104,10 @@ function extractServerName(url: string): string {
   if (url.includes('20.7.146.191')) return 'Auto Search';
   if (url.includes('20.1.198.58')) return 'Production Server';
 
+  // Special cases for DDP servers
+  if (url.includes('ddphub.ai')) return 'DDP URL';
+  if (url.includes('twfnwlccyudfgqjmmdva.supabase.co')) return 'DDP API';
+
   // Extract domain name from URL
   try {
     const urlObj = new URL(url);
@@ -613,8 +617,15 @@ async function sendMultiServerEmail(config: EmailConfig, statuses: ServerStatus[
   const criticalChanges = changes.filter(c => c.changeType === 'critical');
   const degradedChanges = changes.filter(c => c.changeType === 'degraded');
 
+  const autoCheckerUrls = ['20.1.198.58', '20.7.146.191'];
+  const autoCheckerDown = downServers.some(s =>
+    autoCheckerUrls.some(ip => s.url.includes(ip))
+  );
+
   let subject = '';
-  if (criticalChanges.length > 0) {
+  if (autoCheckerDown) {
+    subject = 'High Alert! Auto Checker Server Down';
+  } else if (criticalChanges.length > 0) {
     subject = `🚨 CRITICAL: ${criticalChanges.length} Server(s) Down!`;
   } else if (degradedChanges.length > 0) {
     subject = `⚠️ WARNING: ${degradedChanges.length} Server(s) Degraded`;
@@ -856,7 +867,7 @@ async function main() {
     to: process.env.EMAIL_TO || '',
   };
 
-  const serverUrlsString = process.env.SERVER_URLS || 'http://20.7.146.191:3000/';
+  const serverUrlsString = process.env.SERVER_URLS || 'http://20.7.146.191:3000/,https://20.1.198.58/,https://www.ddphub.ai/|DDP URL,https://twfnwlccyudfgqjmmdva.supabase.co/|DDP API';
   const requiredServerUrlsString = process.env.REQUIRED_SERVER_URLS || '';
   const configuredServerEntries = parseServerEntries(serverUrlsString);
   const requiredServerEntries = parseServerEntries(requiredServerUrlsString);
