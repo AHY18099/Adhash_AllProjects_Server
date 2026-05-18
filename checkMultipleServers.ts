@@ -65,19 +65,21 @@ function normalizeServerUrl(url: string): string {
   return url.trim().replace(/\/+$/, '').toLowerCase();
 }
 
-function mergeServerEntries(primary: ServerEntry[], required: ServerEntry[]): ServerEntry[] {
+function mergeServerEntries(primary: ServerEntry[], required: ServerEntry[]): { entries: ServerEntry[]; addedRequiredServerCount: number } {
   const merged = [...primary];
   const seen = new Set(primary.map(entry => normalizeServerUrl(entry.url)));
+  let addedRequiredServerCount = 0;
 
   for (const entry of required) {
     const normalizedUrl = normalizeServerUrl(entry.url);
     if (!seen.has(normalizedUrl)) {
       merged.push(entry);
       seen.add(normalizedUrl);
+      addedRequiredServerCount += 1;
     }
   }
 
-  return merged;
+  return { entries: merged, addedRequiredServerCount };
 }
 
 function extractServerName(url: string): string {
@@ -843,11 +845,9 @@ async function main() {
   const requiredServerUrlsString = process.env.REQUIRED_SERVER_URLS || '';
   const configuredServerEntries = parseServerEntries(serverUrlsString);
   const requiredServerEntries = parseServerEntries(requiredServerUrlsString);
-  const serverEntries = mergeServerEntries(configuredServerEntries, requiredServerEntries);
+  const { entries: serverEntries, addedRequiredServerCount } = mergeServerEntries(configuredServerEntries, requiredServerEntries);
 
-  const requiredServerCount = requiredServerEntries.length;
-  const addedRequiredServerCount = Math.max(serverEntries.length - configuredServerEntries.length, 0);
-  if (requiredServerCount > 0 && addedRequiredServerCount > 0) {
+  if (addedRequiredServerCount > 0) {
     console.log(`🛡️ Required server safeguard: ${addedRequiredServerCount} required server(s) not in configured list were auto-added`);
   }
 
