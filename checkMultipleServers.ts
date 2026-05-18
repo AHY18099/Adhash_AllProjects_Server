@@ -847,7 +847,7 @@ async function main() {
 
   const requiredServerCount = requiredServerEntries.length;
   const addedRequiredServerCount = Math.max(serverEntries.length - configuredServerEntries.length, 0);
-  if (requiredServerCount > 0) {
+  if (requiredServerCount > 0 && addedRequiredServerCount > 0) {
     console.log(`🛡️ Required server safeguard: ${addedRequiredServerCount} required server(s) not in configured list were auto-added`);
   }
 
