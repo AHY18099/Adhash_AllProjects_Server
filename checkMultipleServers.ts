@@ -846,9 +846,9 @@ async function main() {
   const serverEntries = mergeServerEntries(configuredServerEntries, requiredServerEntries);
 
   const requiredServerCount = requiredServerEntries.length;
-  const injectedRequiredServers = Math.max(serverEntries.length - configuredServerEntries.length, 0);
+  const addedRequiredServerCount = Math.max(serverEntries.length - configuredServerEntries.length, 0);
   if (requiredServerCount > 0) {
-    console.log(`🛡️ Required server safeguard: ${injectedRequiredServers} missing required server(s) auto-added`);
+    console.log(`🛡️ Required server safeguard: ${addedRequiredServerCount} required server(s) not in configured list were auto-added`);
   }
 
   const sendOnlyOnChange = process.env.SEND_ONLY_ON_CHANGE === 'true';
