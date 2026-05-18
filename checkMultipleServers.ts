@@ -41,6 +41,45 @@ interface PreviousStatus {
   timestamp: string;
 }
 
+interface ServerEntry {
+  url: string;
+  name?: string;
+}
+
+function parseServerEntries(serverUrlsString: string): ServerEntry[] {
+  return serverUrlsString
+    .split(',')
+    .map(entry => entry.trim())
+    .filter(Boolean)
+    .map(entry => {
+      const parts = entry.split('|');
+      return {
+        url: parts[0].trim(),
+        name: parts.length > 1 ? parts[1].trim() : undefined
+      };
+    })
+    .filter(entry => entry.url.length > 0);
+}
+
+function normalizeServerUrl(url: string): string {
+  return url.trim().replace(/\/+$/, '').toLowerCase();
+}
+
+function mergeServerEntries(primary: ServerEntry[], required: ServerEntry[]): ServerEntry[] {
+  const merged = [...primary];
+  const seen = new Set(primary.map(entry => normalizeServerUrl(entry.url)));
+
+  for (const entry of required) {
+    const normalizedUrl = normalizeServerUrl(entry.url);
+    if (!seen.has(normalizedUrl)) {
+      merged.push(entry);
+      seen.add(normalizedUrl);
+    }
+  }
+
+  return merged;
+}
+
 function extractServerName(url: string): string {
   // Special cases for IP addresses
   if (url.includes('20.62.109.239')) return 'Partsouq';
@@ -801,16 +840,16 @@ async function main() {
   };
 
   const serverUrlsString = process.env.SERVER_URLS || 'http://20.7.146.191:3000/';
+  const requiredServerUrlsString = process.env.REQUIRED_SERVER_URLS || '';
+  const configuredServerEntries = parseServerEntries(serverUrlsString);
+  const requiredServerEntries = parseServerEntries(requiredServerUrlsString);
+  const serverEntries = mergeServerEntries(configuredServerEntries, requiredServerEntries);
 
-  // Parse server URLs with optional custom names (format: URL|Name)
-  const serverEntries = serverUrlsString.split(',').map(entry => {
-    const trimmed = entry.trim();
-    const parts = trimmed.split('|');
-    return {
-      url: parts[0].trim(),
-      name: parts.length > 1 ? parts[1].trim() : undefined
-    };
-  });
+  const requiredServerCount = requiredServerEntries.length;
+  const injectedRequiredServers = Math.max(serverEntries.length - configuredServerEntries.length, 0);
+  if (requiredServerCount > 0) {
+    console.log(`🛡️ Required server safeguard: ${injectedRequiredServers} missing required server(s) auto-added`);
+  }
 
   const sendOnlyOnChange = process.env.SEND_ONLY_ON_CHANGE === 'true';
 
