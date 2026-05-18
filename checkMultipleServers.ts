@@ -46,6 +46,7 @@ function extractServerName(url: string): string {
   if (url.includes('20.62.109.239')) return 'Partsouq';
   if (url.includes('20.15.121.70')) return 'Manual Search';
   if (url.includes('20.7.146.191')) return 'Auto Search';
+  if (url.includes('20.1.198.58')) return 'Production Server';
 
   // Extract domain name from URL
   try {
