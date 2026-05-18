@@ -45,9 +45,13 @@ async function sendServerDownEmail(config: EmailConfig, server: ServerStatus) {
 
   const transporter = nodemailer.createTransport(transportConfig);
 
+  const autoCheckerIps = ['20.7.146.191', '20.1.198.58'];
+  const isAutoChecker = autoCheckerIps.some(ip => server.url.includes(ip));
   const subject = server.isActive
     ? `⚠️ Server Unhealthy Alert - ${server.url}`
-    : `🚨 Server DOWN Alert - ${server.url}`;
+    : isAutoChecker
+      ? 'Auto Checker Server Down'
+      : `🚨 Server DOWN Alert - ${server.url}`;
 
   const statusText = server.isActive ? 'ACTIVE' : 'INACTIVE';
   const statusColor = server.isActive ? '#ff9800' : '#f44336';

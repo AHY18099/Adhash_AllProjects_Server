@@ -624,7 +624,7 @@ async function sendMultiServerEmail(config: EmailConfig, statuses: ServerStatus[
 
   let subject = '';
   if (autoCheckerDown) {
-    subject = 'High Alert! Auto Checker Server Down';
+    subject = 'Auto Checker Server Down';
   } else if (criticalChanges.length > 0) {
     subject = `🚨 CRITICAL: ${criticalChanges.length} Server(s) Down!`;
   } else if (degradedChanges.length > 0) {
