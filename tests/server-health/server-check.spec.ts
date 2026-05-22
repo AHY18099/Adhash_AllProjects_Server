@@ -113,10 +113,6 @@ const SERVERS = [
   {
     "name": "DDP — DDP - Supabase",
     "url": "https://twfnwlccyudfgqjmmdva.supabase.co/"
-  },
-  {
-    "name": "TEST PROJECT — Adhash",
-    "url": "https://adhashtech.com"
   }
 ];
 
