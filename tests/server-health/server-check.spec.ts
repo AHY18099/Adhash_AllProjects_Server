@@ -113,6 +113,14 @@ const SERVERS = [
   {
     "name": "DDP — DDP - Supabase",
     "url": "https://twfnwlccyudfgqjmmdva.supabase.co/"
+  },
+  {
+    "name": "ZapTrade — Website",
+    "url": "https://zaptrade.ai"
+  },
+  {
+    "name": "ZapTrade — Dashboard",
+    "url": "https://algo.zaptrade.ai"
   }
 ];
 
