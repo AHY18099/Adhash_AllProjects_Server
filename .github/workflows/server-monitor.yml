@@ -46,7 +46,8 @@ jobs:
           EMAIL_USER=${{ secrets.EMAIL_USER }}
           EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}
           EMAIL_TO=${{ secrets.EMAIL_TO }}
-          SLACK_WEBHOOK_URL=${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN=${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL=${{ secrets.SLACK_CHANNEL }}
           SERVER_URLS=${{ secrets.SERVER_URLS }}
           REQUIRED_SERVER_URLS=https://20.1.198.58/|AutoChecker - Production Server,https://www.ddphub.ai/|DDP URL,https://twfnwlccyudfgqjmmdva.supabase.co/|DDP API
           CHECK_INTERVAL_MINUTES=60

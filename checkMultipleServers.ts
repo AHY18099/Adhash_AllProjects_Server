@@ -593,7 +593,7 @@ function generateModernHTMLReport(statuses: ServerStatus[]): string {
 
 const AUTOCHECKER_ALERT_IPS = ['20.7.146.191', '20.15.121.70'];
 
-async function sendSlackAutoCheckerDownAlert(webhookUrl: string, downServers: ServerStatus[]): Promise<boolean> {
+async function sendSlackAutoCheckerDownAlert(botToken: string, channel: string, downServers: ServerStatus[]): Promise<boolean> {
   const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
 
   const serverLines = downServers
@@ -601,18 +601,24 @@ async function sendSlackAutoCheckerDownAlert(webhookUrl: string, downServers: Se
     .join('\n');
 
   const payload = {
+    channel,
     text: `🔴 *AutoChecker Scrap Server Down*\n*Timestamp:* ${timestamp}\n${serverLines}`,
   };
 
   try {
-    const response = await fetch(webhookUrl, {
+    const response = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': `Bearer ${botToken}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify(payload),
     });
 
-    if (!response.ok) {
-      console.log(`   ❌ Slack webhook returned ${response.status}`);
+    const result: any = await response.json();
+
+    if (!response.ok || !result.ok) {
+      console.log(`   ❌ Slack API error: ${result.error || response.status}`);
       return false;
     }
 
@@ -980,7 +986,8 @@ async function main() {
   console.log('');
 
   // Immediate Slack alert when either monitored AutoChecker server goes down
-  const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL || '';
+  const slackBotToken = process.env.SLACK_BOT_TOKEN || '';
+  const slackChannel = process.env.SLACK_CHANNEL || '';
   const newlyDownAutoCheckerServers = statuses.filter(s =>
     !s.isActive &&
     AUTOCHECKER_ALERT_IPS.some(ip => s.url.includes(ip)) &&
@@ -988,11 +995,11 @@ async function main() {
   );
 
   if (newlyDownAutoCheckerServers.length > 0) {
-    if (slackWebhookUrl) {
+    if (slackBotToken && slackChannel) {
       console.log('💬 Sending Slack alert for AutoChecker server(s) down...');
-      await sendSlackAutoCheckerDownAlert(slackWebhookUrl, newlyDownAutoCheckerServers);
+      await sendSlackAutoCheckerDownAlert(slackBotToken, slackChannel, newlyDownAutoCheckerServers);
     } else {
-      console.warn('⚠️  SLACK_WEBHOOK_URL is not configured - skipping Slack alert');
+      console.warn('⚠️  SLACK_BOT_TOKEN / SLACK_CHANNEL is not configured - skipping Slack alert');
     }
   }
 
