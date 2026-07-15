@@ -37,22 +37,29 @@ jobs:
             server-status-
 
       - name: Create .env file
+        env:
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+          SERVER_URLS: ${{ secrets.SERVER_URLS }}
         run: |
-          cat > .env << EOF
-          EMAIL_SERVICE=Zoho
-          EMAIL_HOST=smtp.zoho.com
-          EMAIL_PORT=465
-          EMAIL_SECURE=true
-          EMAIL_USER=${{ secrets.EMAIL_USER }}
-          EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}
-          EMAIL_TO=${{ secrets.EMAIL_TO }}
-          SLACK_BOT_TOKEN=${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL=${{ secrets.SLACK_CHANNEL }}
-          SERVER_URLS=${{ secrets.SERVER_URLS }}
-          REQUIRED_SERVER_URLS=https://20.1.198.58/|AutoChecker - Production Server,https://www.ddphub.ai/|DDP URL,https://twfnwlccyudfgqjmmdva.supabase.co/|DDP API
-          CHECK_INTERVAL_MINUTES=60
-          SEND_ONLY_ON_CHANGE=false
-          EOF
+          {
+            echo "EMAIL_SERVICE=Zoho"
+            echo "EMAIL_HOST=smtp.zoho.com"
+            echo "EMAIL_PORT=465"
+            echo "EMAIL_SECURE=true"
+            echo "EMAIL_USER=$EMAIL_USER"
+            echo "EMAIL_PASSWORD=$EMAIL_PASSWORD"
+            echo "EMAIL_TO=$EMAIL_TO"
+            echo "SLACK_BOT_TOKEN=$SLACK_BOT_TOKEN"
+            echo "SLACK_CHANNEL=$SLACK_CHANNEL"
+            echo "SERVER_URLS=$(echo "$SERVER_URLS" | tr '\n' ' ' | tr -s ' ')"
+            echo "REQUIRED_SERVER_URLS=https://20.1.198.58/|AutoChecker - Production Server,https://www.ddphub.ai/|DDP URL,https://twfnwlccyudfgqjmmdva.supabase.co/|DDP API"
+            echo "CHECK_INTERVAL_MINUTES=60"
+            echo "SEND_ONLY_ON_CHANGE=false"
+          } > .env
 
       - name: Run server health check
         run: npm run check-multiple
