@@ -645,73 +645,6 @@ async function sendSlackAutoCheckerDownAlert(
   return sent;
 }
 
-async function sendSlackHealthReport(
-  botToken: string,
-  channel: string,
-  statuses: ServerStatus[],
-  reportUrl?: string
-): Promise<boolean> {
-  const downServers = statuses.filter(s => !s.isActive);
-  const unhealthyServers = statuses.filter(s => s.isActive && s.statusCode && s.statusCode >= 400);
-  const healthyServers = statuses.filter(s => s.isActive && s.statusCode && s.statusCode < 400);
-  const hasIssues = downServers.length > 0 || unhealthyServers.length > 0;
-  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
-
-  const blocks: any[] = [
-    {
-      type: 'header',
-      text: {
-        type: 'plain_text',
-        text: hasIssues ? '⚠️ Server Health Check — Issues Found' : '✅ Server Health Check — All Clear',
-        emoji: true,
-      },
-    },
-    {
-      type: 'context',
-      elements: [{ type: 'mrkdwn', text: `🕒 ${timestamp}` }],
-    },
-    { type: 'divider' },
-    {
-      type: 'section',
-      fields: [
-        slackStatField('Total Servers', statuses.length),
-        slackStatField('✅ Healthy', healthyServers.length),
-        slackStatField('⚠️ Unhealthy', unhealthyServers.length),
-        slackStatField('🚨 Down', downServers.length),
-      ],
-    },
-  ];
-
-  if (reportUrl) {
-    blocks.push(
-      { type: 'divider' },
-      {
-        type: 'actions',
-        elements: [
-          {
-            type: 'button',
-            text: { type: 'plain_text', text: '📊 View Report', emoji: true },
-            url: reportUrl,
-            style: hasIssues ? 'danger' : 'primary',
-          },
-        ],
-      }
-    );
-  }
-
-  const sent = await postSlackMessage(botToken, {
-    channel,
-    text: hasIssues ? '⚠️ Server Health Check — Issues Found' : '✅ Server Health Check — All Clear',
-    blocks,
-  });
-
-  if (sent) {
-    console.log('   💬 Slack health report sent');
-  }
-
-  return sent;
-}
-
 function saveHTMLReport(statuses: ServerStatus[]): { reportFileName: string; reportPath: string; reportsDir: string } {
   const modernReport = generateModernHTMLReport(statuses);
   const reportsDir = path.join(process.cwd(), 'reports');
@@ -1129,12 +1062,6 @@ async function main() {
   if (newlyDownAutoCheckerServers.length > 0 && slackConfigured) {
     console.log('💬 Sending Slack alert for AutoChecker server(s) down...');
     await sendSlackAutoCheckerDownAlert(slackBotToken, slackChannel, newlyDownAutoCheckerServers, reportUrl);
-  }
-
-  // Full status report posted to Slack alongside the email report
-  if (slackConfigured) {
-    console.log('💬 Sending Slack health report...');
-    await sendSlackHealthReport(slackBotToken, slackChannel, statuses, reportUrl);
   }
 
   // Send email based on mode
