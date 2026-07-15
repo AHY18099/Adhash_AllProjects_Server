@@ -51,7 +51,7 @@ jobs:
           SERVER_URLS=${{ secrets.SERVER_URLS }}
           REQUIRED_SERVER_URLS=https://20.1.198.58/|AutoChecker - Production Server,https://www.ddphub.ai/|DDP URL,https://twfnwlccyudfgqjmmdva.supabase.co/|DDP API
           CHECK_INTERVAL_MINUTES=60
-          SEND_ONLY_ON_CHANGE=true
+          SEND_ONLY_ON_CHANGE=false
           EOF
 
       - name: Run server health check
