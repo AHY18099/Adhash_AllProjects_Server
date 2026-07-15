@@ -554,6 +554,14 @@ function generateModernHTMLReport(statuses: ServerStatus[]): string {
 
 const AUTOCHECKER_ALERT_IPS = ['20.7.146.191', '20.15.121.70'];
 
+// Servers with a known, already-tracked issue: still shown in reports, but excluded
+// from the email subject line so they don't trigger alert-style subjects every run.
+const KNOWN_ISSUE_IPS = ['20.62.109.239'];
+
+function hasKnownIssueOnly(server: ServerStatus): boolean {
+  return KNOWN_ISSUE_IPS.some(ip => server.url.includes(ip));
+}
+
 async function postSlackMessage(botToken: string, payload: Record<string, unknown>): Promise<boolean> {
   try {
     const response = await fetch('https://slack.com/api/chat.postMessage', {
@@ -690,8 +698,15 @@ async function sendMultiServerEmail(
   const healthyServers = statuses.filter(s => s.isActive && s.statusCode && s.statusCode < 400);
 
   const hasIssues = downServers.length > 0 || unhealthyServers.length > 0;
-  const criticalChanges = changes.filter(c => c.changeType === 'critical');
-  const degradedChanges = changes.filter(c => c.changeType === 'degraded');
+
+  // Subject line ignores servers with a known, already-tracked issue (e.g. PartSouq)
+  // so they don't generate alert-style subjects on every run.
+  const subjectDownServers = downServers.filter(s => !hasKnownIssueOnly(s));
+  const subjectUnhealthyServers = unhealthyServers.filter(s => !hasKnownIssueOnly(s));
+  const subjectHasIssues = subjectDownServers.length > 0 || subjectUnhealthyServers.length > 0;
+  const subjectChanges = changes.filter(c => !KNOWN_ISSUE_IPS.some(ip => c.url.includes(ip)));
+  const criticalChanges = subjectChanges.filter(c => c.changeType === 'critical');
+  const degradedChanges = subjectChanges.filter(c => c.changeType === 'degraded');
 
   const autoCheckerDown = downServers.some(s =>
     AUTOCHECKER_ALERT_IPS.some(ip => s.url.includes(ip))
@@ -704,10 +719,10 @@ async function sendMultiServerEmail(
     subject = `🚨 CRITICAL: ${criticalChanges.length} Server(s) Down!`;
   } else if (degradedChanges.length > 0) {
     subject = `⚠️ WARNING: ${degradedChanges.length} Server(s) Degraded`;
-  } else if (changes.length > 0) {
-    subject = `✅ Server Status Improved: ${changes.length} Change(s)`;
-  } else if (hasIssues) {
-    subject = `🚨 Server Alert: ${downServers.length} Down, ${unhealthyServers.length} Unhealthy`;
+  } else if (subjectChanges.length > 0) {
+    subject = `✅ Server Status Improved: ${subjectChanges.length} Change(s)`;
+  } else if (subjectHasIssues) {
+    subject = `🚨 Server Alert: ${subjectDownServers.length} Down, ${subjectUnhealthyServers.length} Unhealthy`;
   } else {
     subject = `✅ All Servers Healthy (${healthyServers.length} servers)`;
   }
