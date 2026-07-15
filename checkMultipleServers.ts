@@ -591,6 +591,39 @@ function generateModernHTMLReport(statuses: ServerStatus[]): string {
 </html>`;
 }
 
+const AUTOCHECKER_ALERT_IPS = ['20.7.146.191', '20.15.121.70'];
+
+async function sendSlackAutoCheckerDownAlert(webhookUrl: string, downServers: ServerStatus[]): Promise<boolean> {
+  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+
+  const serverLines = downServers
+    .map(s => `• *${s.name || s.url}* (${s.url}) — ${s.error || 'No response'}`)
+    .join('\n');
+
+  const payload = {
+    text: `🔴 *AutoChecker Scrap Server Down*\n*Timestamp:* ${timestamp}\n${serverLines}`,
+  };
+
+  try {
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      console.log(`   ❌ Slack webhook returned ${response.status}`);
+      return false;
+    }
+
+    console.log('   💬 Slack alert sent: AutoChecker Scrap Server Down');
+    return true;
+  } catch (error: any) {
+    console.log(`   ❌ Failed to send Slack alert: ${error.message}`);
+    return false;
+  }
+}
+
 async function sendMultiServerEmail(config: EmailConfig, statuses: ServerStatus[], changes: StatusChange[] = []) {
   const transportConfig: any = {
     auth: {
@@ -617,9 +650,8 @@ async function sendMultiServerEmail(config: EmailConfig, statuses: ServerStatus[
   const criticalChanges = changes.filter(c => c.changeType === 'critical');
   const degradedChanges = changes.filter(c => c.changeType === 'degraded');
 
-  const autoCheckerUrls = ['20.1.198.58', '20.7.146.191'];
   const autoCheckerDown = downServers.some(s =>
-    autoCheckerUrls.some(ip => s.url.includes(ip))
+    AUTOCHECKER_ALERT_IPS.some(ip => s.url.includes(ip))
   );
 
   let subject = '';
@@ -946,6 +978,23 @@ async function main() {
   // Save current status for next run
   savePreviousStatus(statuses);
   console.log('');
+
+  // Immediate Slack alert when either monitored AutoChecker server goes down
+  const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL || '';
+  const newlyDownAutoCheckerServers = statuses.filter(s =>
+    !s.isActive &&
+    AUTOCHECKER_ALERT_IPS.some(ip => s.url.includes(ip)) &&
+    changes.some(c => c.url === s.url && c.currentStatus === 'down')
+  );
+
+  if (newlyDownAutoCheckerServers.length > 0) {
+    if (slackWebhookUrl) {
+      console.log('💬 Sending Slack alert for AutoChecker server(s) down...');
+      await sendSlackAutoCheckerDownAlert(slackWebhookUrl, newlyDownAutoCheckerServers);
+    } else {
+      console.warn('⚠️  SLACK_WEBHOOK_URL is not configured - skipping Slack alert');
+    }
+  }
 
   // Send email based on mode
   let shouldSendEmail = true;

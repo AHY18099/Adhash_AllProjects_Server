@@ -91,10 +91,6 @@ const SERVERS = [
     "url": "https://lead.zapcrm.io/"
   },
   {
-    "name": "ZapAI — Zapai - Web",
-    "url": "https://www.zapai.us/"
-  },
-  {
     "name": "SMC — SMC - API",
     "url": "https://api.sendmovieclips.com/"
   },
