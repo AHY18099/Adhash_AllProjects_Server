@@ -217,6 +217,14 @@ function determineChangeType(previous: string, current: string): 'improved' | 'd
   return 'improved';
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function generateModernHTMLReport(statuses: ServerStatus[]): string {
   const downServers = statuses.filter(s => !s.isActive);
   const unhealthyServers = statuses.filter(s => s.isActive && s.statusCode && s.statusCode >= 400);
@@ -228,40 +236,46 @@ function generateModernHTMLReport(statuses: ServerStatus[]): string {
     timeStyle: 'long'
   });
 
-  const generateServerCards = (servers: ServerStatus[], statusColor: string, statusLabel: string, icon: string) => {
+  const generateServerRows = (servers: ServerStatus[], statusLabel: string, statusClass: string) => {
     return servers.map(s => `
-      <div class="server-card ${statusLabel.toLowerCase()}">
-        <div class="server-header">
-          <span class="server-icon">${icon}</span>
-          <div class="server-info">
-            <div class="server-name">${s.name || 'Unknown'}</div>
-            <div class="server-url">${s.url}</div>
-          </div>
+        <tr>
+          <td>
+            <div class="row-name">${escapeHtml(s.name || 'Unknown')}</div>
+            <div class="row-url">${escapeHtml(s.url)}</div>
+          </td>
+          <td><span class="pill pill-${statusClass}">${statusLabel}</span></td>
+          <td class="mono">${s.isActive ? escapeHtml(`${s.statusCode} ${s.statusText}`) : escapeHtml(s.error || 'No response')}</td>
+          <td class="mono num">${s.responseTime ? `${s.responseTime} ms` : '—'}</td>
+          <td class="mono num">${s.timestamp.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata' })}</td>
+        </tr>`).join('');
+  };
+
+  const section = (title: string, statusClass: string, servers: ServerStatus[], label: string) => {
+    if (servers.length === 0) return '';
+    return `
+      <section class="group">
+        <div class="group-head">
+          <span class="dot dot-${statusClass}"></span>
+          <h2>${title}</h2>
+          <span class="group-count">${servers.length}</span>
         </div>
-        <div class="server-details">
-          <div class="detail-item">
-            <span class="detail-label">Name:</span>
-            <span class="detail-value" style="font-weight: bold; color: #333;">${s.name || 'Unknown'}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">Status:</span>
-            <span class="detail-value" style="color: ${statusColor}; font-weight: bold;">${statusLabel}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">Response:</span>
-            <span class="detail-value">${s.isActive ? `${s.statusCode} ${s.statusText}` : s.error || 'No response'}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">Response Time:</span>
-            <span class="detail-value">${s.responseTime ? `${s.responseTime}ms` : 'N/A'}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">Checked:</span>
-            <span class="detail-value">${s.timestamp.toLocaleTimeString()}</span>
-          </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Server</th>
+                <th>Status</th>
+                <th>Detail</th>
+                <th class="num">Latency</th>
+                <th class="num">Checked</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${generateServerRows(servers, label, statusClass)}
+            </tbody>
+          </table>
         </div>
-      </div>
-    `).join('');
+      </section>`;
   };
 
   return `<!DOCTYPE html>
@@ -269,322 +283,269 @@ function generateModernHTMLReport(statuses: ServerStatus[]): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Server Health Report - ${new Date().toLocaleDateString()}</title>
+  <title>Server Health Report — ${new Date().toLocaleDateString()}</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    :root {
+      --ink: #0f172a;
+      --ink-soft: #475569;
+      --line: #e2e8f0;
+      --ground: #f6f8fb;
+      --card: #ffffff;
+      --accent: #2563eb;
+      --good: #16a34a;
+      --good-bg: #ecfdf3;
+      --warn: #d97706;
+      --warn-bg: #fffbeb;
+      --bad: #dc2626;
+      --bad-bg: #fef2f2;
     }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ink: #e5e9f0;
+        --ink-soft: #94a3b8;
+        --line: #263041;
+        --ground: #0b1220;
+        --card: #121a2b;
+        --accent: #5b8def;
+        --good: #34d399;
+        --good-bg: #0d2a1f;
+        --warn: #fbbf24;
+        --warn-bg: #2c2107;
+        --bad: #f87171;
+        --bad-bg: #2c1212;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: linear-gradient(135deg, #FFD6A5 0%, #CAFFBF 100%);
-      padding: 20px;
-      min-height: 100vh;
+      background: var(--ground);
+      color: var(--ink);
+      padding: 32px 20px;
     }
 
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      overflow: hidden;
-    }
+    .wrap { max-width: 1180px; margin: 0 auto; }
 
-    .header {
-      background: ${hasIssues ? 'linear-gradient(135deg, #f44336 0%, #e91e63 100%)' : 'linear-gradient(135deg, #4caf50 0%, #8bc34a 100%)'};
-      color: white;
-      padding: 40px;
-      text-align: center;
-    }
-
-    .header h1 {
-      font-size: 2.5em;
-      margin-bottom: 10px;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-    }
-
-    .header .subtitle {
-      font-size: 1.1em;
-      opacity: 0.95;
-    }
-
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-      padding: 40px;
-      background: #f8f9fa;
-    }
-
-    .summary-card {
-      background: white;
-      padding: 30px;
-      border-radius: 15px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      text-align: center;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .summary-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 8px 12px rgba(0,0,0,0.15);
-    }
-
-    .summary-card .icon {
-      font-size: 3em;
-      margin-bottom: 15px;
-    }
-
-    .summary-card .label {
-      font-size: 0.9em;
-      color: #666;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 10px;
-    }
-
-    .summary-card .count {
-      font-size: 3em;
-      font-weight: bold;
-      margin-bottom: 5px;
-    }
-
-    .summary-card.healthy .count { color: #4caf50; }
-    .summary-card.unhealthy .count { color: #ff9800; }
-    .summary-card.down .count { color: #f44336; }
-
-    .content {
-      padding: 40px;
-    }
-
-    .section {
-      margin-bottom: 40px;
-    }
-
-    .section-title {
-      font-size: 1.8em;
-      margin-bottom: 20px;
-      padding-bottom: 10px;
-      border-bottom: 3px solid #e0e0e0;
+    .top {
       display: flex;
       align-items: center;
-      gap: 10px;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
     }
 
-    .section-title.healthy { border-color: #4caf50; color: #4caf50; }
-    .section-title.unhealthy { border-color: #ff9800; color: #ff9800; }
-    .section-title.down { border-color: #f44336; color: #f44336; }
+    .brand { display: flex; align-items: center; gap: 12px; }
 
-    .servers-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-      gap: 20px;
-    }
-
-    .server-card {
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      border-left: 5px solid;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .server-card:hover {
-      transform: translateX(5px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-
-    .server-card.active { border-color: #4caf50; }
-    .server-card.unhealthy { border-color: #ff9800; }
-    .server-card.inactive { border-color: #f44336; }
-
-    .server-header {
-      display: flex;
-      align-items: flex-start;
-      gap: 15px;
-      margin-bottom: 15px;
-      padding-bottom: 15px;
-      border-bottom: 2px solid #e0e0e0;
-    }
-
-    .server-icon {
-      font-size: 2em;
+    .brand-mark {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 700; font-size: 15px;
       flex-shrink: 0;
     }
 
-    .server-info {
-      flex: 1;
+    .brand-text .name { font-weight: 600; font-size: 15px; }
+    .brand-text .sub { font-size: 12.5px; color: var(--ink-soft); }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      background: ${hasIssues ? 'var(--bad-bg)' : 'var(--good-bg)'};
+      color: ${hasIssues ? 'var(--bad)' : 'var(--good)'};
     }
 
-    .server-name {
-      font-size: 1.3em;
-      font-weight: 700;
-      color: #1a1a1a;
-      margin-bottom: 5px;
-      text-transform: capitalize;
+    .status-chip .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: currentColor;
     }
 
-    .server-url {
-      font-size: 0.85em;
-      color: #666;
-      word-break: break-all;
-      font-family: 'Courier New', monospace;
+    .meta {
+      font-size: 13px;
+      color: var(--ink-soft);
+      margin-bottom: 28px;
+      font-variant-numeric: tabular-nums;
     }
 
-    .server-details {
+    .stats {
       display: grid;
-      gap: 10px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 32px;
     }
 
-    .detail-item {
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+
+    .stat .label {
+      font-size: 12px;
+      color: var(--ink-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+
+    .stat .value {
+      font-size: 30px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
+    .stat.good .value { color: var(--good); }
+    .stat.warn .value { color: var(--warn); }
+    .stat.bad .value { color: var(--bad); }
+
+    .group { margin-bottom: 28px; }
+
+    .group-head {
       display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 12px;
     }
 
-    .detail-label {
-      color: #666;
-      font-size: 0.9em;
+    .group-head h2 {
+      font-size: 15px;
+      font-weight: 600;
     }
 
-    .detail-value {
-      color: #333;
-      font-weight: 500;
+    .group-count {
+      font-size: 12px;
+      color: var(--ink-soft);
+      background: var(--ground);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 1px 8px;
+      font-variant-numeric: tabular-nums;
     }
+
+    .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .dot-bad { background: var(--bad); }
+    .dot-warn { background: var(--warn); }
+    .dot-good { background: var(--good); }
+
+    .table-scroll {
+      overflow-x: auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 640px; }
+
+    th {
+      text-align: left;
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+      font-weight: 600;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    th.num, td.num { text-align: right; }
+
+    td {
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+      font-size: 13.5px;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .row-name { font-weight: 600; }
+    .row-url { font-size: 12px; color: var(--ink-soft); font-family: 'SFMono-Regular', Consolas, monospace; margin-top: 2px; }
+
+    .mono { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12.5px; color: var(--ink-soft); }
+    .num { font-variant-numeric: tabular-nums; }
+
+    .pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .pill-bad { background: var(--bad-bg); color: var(--bad); }
+    .pill-warn { background: var(--warn-bg); color: var(--warn); }
+    .pill-good { background: var(--good-bg); color: var(--good); }
 
     .footer {
-      background: #2c3e50;
-      color: white;
-      padding: 30px;
-      text-align: center;
+      margin-top: 32px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      font-size: 12.5px;
+      color: var(--ink-soft);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
-    .footer p {
-      margin: 5px 0;
-      opacity: 0.9;
-    }
+    .footer a { color: var(--accent); text-decoration: none; }
 
-    .timestamp {
-      background: #ecf0f1;
-      padding: 15px;
-      border-radius: 8px;
-      margin: 20px 0;
-      text-align: center;
-      font-size: 0.95em;
-      color: #555;
-    }
-
-    @media (max-width: 768px) {
-      .servers-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .header h1 {
-        font-size: 1.8em;
-      }
-
-      .summary {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media print {
-      body {
-        background: white;
-        padding: 0;
-      }
-
-      .container {
-        box-shadow: none;
-      }
-
-      .server-card:hover {
-        transform: none;
-      }
+    @media (max-width: 720px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>${hasIssues ? '🚨 Server Status Alert' : '✅ Server Health Report'}</h1>
-      <p class="subtitle">Automated Server Monitoring System</p>
-    </div>
-
-    <div class="timestamp">
-      <strong>📅 Report Generated:</strong> ${timestamp}
-    </div>
-
-    <div class="summary">
-      <div class="summary-card healthy">
-        <div class="icon">✅</div>
-        <div class="label">Healthy Servers</div>
-        <div class="count">${healthyServers.length}</div>
-        <div style="color: #666; font-size: 0.9em;">Working Perfectly</div>
-      </div>
-
-      <div class="summary-card unhealthy">
-        <div class="icon">⚠️</div>
-        <div class="label">Unhealthy Servers</div>
-        <div class="count">${unhealthyServers.length}</div>
-        <div style="color: #666; font-size: 0.9em;">Active but Errors</div>
-      </div>
-
-      <div class="summary-card down">
-        <div class="icon">🚨</div>
-        <div class="label">Down Servers</div>
-        <div class="count">${downServers.length}</div>
-        <div style="color: #666; font-size: 0.9em;">Not Responding</div>
-      </div>
-
-      <div class="summary-card" style="background: linear-gradient(135deg, #A8DADC 0%, #457B9D 100%); color: white;">
-        <div class="icon">🖥️</div>
-        <div class="label" style="color: white; opacity: 0.9;">Total Servers</div>
-        <div class="count" style="color: white;">${statuses.length}</div>
-        <div style="opacity: 0.9; font-size: 0.9em;">Being Monitored</div>
-      </div>
-    </div>
-
-    <div class="content">
-      ${downServers.length > 0 ? `
-      <div class="section">
-        <h2 class="section-title down">🚨 Down/Inactive Servers (${downServers.length})</h2>
-        <div class="servers-grid">
-          ${generateServerCards(downServers, '#f44336', 'INACTIVE', '🚨')}
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="brand-mark">AH</div>
+        <div class="brand-text">
+          <div class="name">Adhash Technologies</div>
+          <div class="sub">Server Health Monitor</div>
         </div>
       </div>
-      ` : ''}
-
-      ${unhealthyServers.length > 0 ? `
-      <div class="section">
-        <h2 class="section-title unhealthy">⚠️ Unhealthy Servers (${unhealthyServers.length})</h2>
-        <div class="servers-grid">
-          ${generateServerCards(unhealthyServers, '#ff9800', 'ACTIVE', '⚠️')}
-        </div>
-      </div>
-      ` : ''}
-
-      ${healthyServers.length > 0 ? `
-      <div class="section">
-        <h2 class="section-title healthy">✅ Healthy Servers (${healthyServers.length})</h2>
-        <div class="servers-grid">
-          ${generateServerCards(healthyServers, '#4caf50', 'ACTIVE', '✅')}
-        </div>
-      </div>
-      ` : ''}
+      <span class="status-chip"><span class="dot"></span>${hasIssues ? 'Issues Detected' : 'All Systems Operational'}</span>
     </div>
+
+    <div class="meta">Report generated ${timestamp} · Monitoring ${statuses.length} server(s)</div>
+
+    <div class="stats">
+      <div class="stat good">
+        <div class="label">Healthy</div>
+        <div class="value">${healthyServers.length}</div>
+      </div>
+      <div class="stat warn">
+        <div class="label">Unhealthy</div>
+        <div class="value">${unhealthyServers.length}</div>
+      </div>
+      <div class="stat bad">
+        <div class="label">Down</div>
+        <div class="value">${downServers.length}</div>
+      </div>
+      <div class="stat">
+        <div class="label">Total Monitored</div>
+        <div class="value">${statuses.length}</div>
+      </div>
+    </div>
+
+    ${section('Down / Inactive', 'bad', downServers, 'DOWN')}
+    ${section('Unhealthy', 'warn', unhealthyServers, 'UNHEALTHY')}
+    ${section('Healthy', 'good', healthyServers, 'HEALTHY')}
 
     <div class="footer">
-      <p><strong>Adhash Technologies - Server Monitoring System</strong></p>
-      <p>This is an automated report generated by the Server Health Monitor</p>
-      <p>Monitoring ${statuses.length} server(s) • Report ID: ${Date.now()}</p>
-      <p style="margin-top: 15px; font-size: 0.9em;">
-        For questions or issues, contact: <a href="mailto:qateam@adhashtech.com" style="color: #3498db;">qateam@adhashtech.com</a>
-      </p>
+      <span>Automated report · Server Health Monitor</span>
+      <span>Questions: <a href="mailto:qateam@adhashtech.com">qateam@adhashtech.com</a></span>
     </div>
   </div>
 </body>
@@ -593,18 +554,7 @@ function generateModernHTMLReport(statuses: ServerStatus[]): string {
 
 const AUTOCHECKER_ALERT_IPS = ['20.7.146.191', '20.15.121.70'];
 
-async function sendSlackAutoCheckerDownAlert(botToken: string, channel: string, downServers: ServerStatus[]): Promise<boolean> {
-  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
-
-  const serverLines = downServers
-    .map(s => `• *${s.name || s.url}* (${s.url}) — ${s.error || 'No response'}`)
-    .join('\n');
-
-  const payload = {
-    channel,
-    text: `🔴 *AutoChecker Scrap Server Down*\n*Timestamp:* ${timestamp}\n${serverLines}`,
-  };
-
+async function postSlackMessage(botToken: string, payload: Record<string, unknown>): Promise<boolean> {
   try {
     const response = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
@@ -622,15 +572,169 @@ async function sendSlackAutoCheckerDownAlert(botToken: string, channel: string, 
       return false;
     }
 
-    console.log('   💬 Slack alert sent: AutoChecker Scrap Server Down');
     return true;
   } catch (error: any) {
-    console.log(`   ❌ Failed to send Slack alert: ${error.message}`);
+    console.log(`   ❌ Failed to send Slack message: ${error.message}`);
     return false;
   }
 }
 
-async function sendMultiServerEmail(config: EmailConfig, statuses: ServerStatus[], changes: StatusChange[] = []) {
+function slackStatField(label: string, value: string | number): Record<string, unknown> {
+  return { type: 'mrkdwn', text: `*${label}*\n${value}` };
+}
+
+async function sendSlackAutoCheckerDownAlert(
+  botToken: string,
+  channel: string,
+  downServers: ServerStatus[],
+  reportUrl?: string
+): Promise<boolean> {
+  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+
+  const serverLines = downServers
+    .map(s => `• *${s.name || s.url}* (\`${s.url}\`) — ${s.error || 'No response'}`)
+    .join('\n');
+
+  const blocks: any[] = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: '🚨 AutoChecker Scrap Server Down', emoji: true },
+    },
+    {
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: `🕒 ${timestamp}` }],
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      fields: [
+        slackStatField('Servers Down', downServers.length),
+        slackStatField('Alert Type', 'Critical'),
+      ],
+    },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: serverLines },
+    },
+  ];
+
+  if (reportUrl) {
+    blocks.push({
+      type: 'actions',
+      elements: [
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '📊 View Report', emoji: true },
+          url: reportUrl,
+          style: 'danger',
+        },
+      ],
+    });
+  }
+
+  const sent = await postSlackMessage(botToken, {
+    channel,
+    text: '🚨 AutoChecker Scrap Server Down',
+    blocks,
+  });
+
+  if (sent) {
+    console.log('   💬 Slack alert sent: AutoChecker Scrap Server Down');
+  }
+
+  return sent;
+}
+
+async function sendSlackHealthReport(
+  botToken: string,
+  channel: string,
+  statuses: ServerStatus[],
+  reportUrl?: string
+): Promise<boolean> {
+  const downServers = statuses.filter(s => !s.isActive);
+  const unhealthyServers = statuses.filter(s => s.isActive && s.statusCode && s.statusCode >= 400);
+  const healthyServers = statuses.filter(s => s.isActive && s.statusCode && s.statusCode < 400);
+  const hasIssues = downServers.length > 0 || unhealthyServers.length > 0;
+  const timestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+
+  const blocks: any[] = [
+    {
+      type: 'header',
+      text: {
+        type: 'plain_text',
+        text: hasIssues ? '⚠️ Server Health Check — Issues Found' : '✅ Server Health Check — All Clear',
+        emoji: true,
+      },
+    },
+    {
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: `🕒 ${timestamp}` }],
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      fields: [
+        slackStatField('Total Servers', statuses.length),
+        slackStatField('✅ Healthy', healthyServers.length),
+        slackStatField('⚠️ Unhealthy', unhealthyServers.length),
+        slackStatField('🚨 Down', downServers.length),
+      ],
+    },
+  ];
+
+  if (reportUrl) {
+    blocks.push(
+      { type: 'divider' },
+      {
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: '📊 View Report', emoji: true },
+            url: reportUrl,
+            style: hasIssues ? 'danger' : 'primary',
+          },
+        ],
+      }
+    );
+  }
+
+  const sent = await postSlackMessage(botToken, {
+    channel,
+    text: hasIssues ? '⚠️ Server Health Check — Issues Found' : '✅ Server Health Check — All Clear',
+    blocks,
+  });
+
+  if (sent) {
+    console.log('   💬 Slack health report sent');
+  }
+
+  return sent;
+}
+
+function saveHTMLReport(statuses: ServerStatus[]): { reportFileName: string; reportPath: string; reportsDir: string } {
+  const modernReport = generateModernHTMLReport(statuses);
+  const reportsDir = path.join(process.cwd(), 'reports');
+  const reportFileName = `server-health-report-${new Date().toISOString().split('T')[0]}.html`;
+  const reportPath = path.join(reportsDir, reportFileName);
+
+  if (!fs.existsSync(reportsDir)) {
+    fs.mkdirSync(reportsDir, { recursive: true });
+  }
+
+  fs.writeFileSync(reportPath, modernReport, 'utf-8');
+  fs.writeFileSync(path.join(reportsDir, 'latest.html'), modernReport, 'utf-8');
+  console.log(`   📄 HTML report saved: ${reportPath}`);
+
+  return { reportFileName, reportPath, reportsDir };
+}
+
+async function sendMultiServerEmail(
+  config: EmailConfig,
+  statuses: ServerStatus[],
+  report: { reportFileName: string; reportPath: string },
+  changes: StatusChange[] = []
+) {
   const transportConfig: any = {
     auth: {
       user: config.user,
@@ -675,157 +779,173 @@ async function sendMultiServerEmail(config: EmailConfig, statuses: ServerStatus[
     subject = `✅ All Servers Healthy (${healthyServers.length} servers)`;
   }
 
-  const generateServerRows = (servers: ServerStatus[], statusColor: string, statusLabel: string) => {
+  const INK = '#0f172a';
+  const INK_SOFT = '#64748b';
+  const LINE = '#e2e8f0';
+  const GOOD = '#16a34a';
+  const GOOD_BG = '#ecfdf3';
+  const WARN = '#d97706';
+  const WARN_BG = '#fffbeb';
+  const BAD = '#dc2626';
+  const BAD_BG = '#fef2f2';
+
+  const pill = (label: string, color: string, bg: string) =>
+    `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;color:${color};background:${bg};">${label}</span>`;
+
+  const generateServerRows = (servers: ServerStatus[], statusLabel: string, color: string, bg: string) => {
     return servers.map(s => `
-      <tr style="border-bottom: 1px solid #e0e0e0;">
-        <td style="padding: 12px 8px; color: #333;">${s.url}</td>
-        <td style="padding: 12px 8px; color: ${statusColor}; font-weight: bold;">${statusLabel}</td>
-        <td style="padding: 12px 8px; color: #666;">
-          ${s.isActive ? `${s.statusCode} ${s.statusText}` : s.error || 'No response'}
-        </td>
-        <td style="padding: 12px 8px; color: #666;">
-          ${s.responseTime ? `${s.responseTime}ms` : 'N/A'}
-        </td>
-      </tr>
-    `).join('');
+              <tr>
+                <td style="padding:13px 16px;border-bottom:1px solid ${LINE};">
+                  <div style="font-weight:600;color:${INK};font-size:13.5px;">${escapeHtml(s.name || 'Unknown')}</div>
+                  <div style="font-size:12px;color:${INK_SOFT};font-family:Consolas,monospace;margin-top:2px;">${escapeHtml(s.url)}</div>
+                </td>
+                <td style="padding:13px 16px;border-bottom:1px solid ${LINE};">${pill(statusLabel, color, bg)}</td>
+                <td style="padding:13px 16px;border-bottom:1px solid ${LINE};color:${INK_SOFT};font-family:Consolas,monospace;font-size:12.5px;">
+                  ${s.isActive ? escapeHtml(`${s.statusCode} ${s.statusText}`) : escapeHtml(s.error || 'No response')}
+                </td>
+                <td style="padding:13px 16px;border-bottom:1px solid ${LINE};color:${INK_SOFT};font-family:Consolas,monospace;font-size:12.5px;text-align:right;">
+                  ${s.responseTime ? `${s.responseTime} ms` : '—'}
+                </td>
+              </tr>`).join('');
+  };
+
+  const tableSection = (title: string, servers: ServerStatus[], statusLabel: string, dotColor: string, color: string, bg: string) => {
+    if (servers.length === 0) return '';
+    return `
+        <tr>
+          <td style="padding:0 32px 8px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
+              <tr>
+                <td style="font-size:15px;font-weight:600;color:${INK};padding-bottom:12px;">
+                  <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${dotColor};margin-right:8px;"></span>${title}
+                  <span style="font-size:12px;color:${INK_SOFT};font-weight:400;margin-left:6px;">(${servers.length})</span>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid ${LINE};border-radius:10px;overflow:hidden;">
+                    <tr>
+                      <th align="left" style="padding:12px 16px;font-size:11.5px;text-transform:uppercase;letter-spacing:0.04em;color:${INK_SOFT};border-bottom:1px solid ${LINE};">Server</th>
+                      <th align="left" style="padding:12px 16px;font-size:11.5px;text-transform:uppercase;letter-spacing:0.04em;color:${INK_SOFT};border-bottom:1px solid ${LINE};">Status</th>
+                      <th align="left" style="padding:12px 16px;font-size:11.5px;text-transform:uppercase;letter-spacing:0.04em;color:${INK_SOFT};border-bottom:1px solid ${LINE};">Detail</th>
+                      <th align="right" style="padding:12px 16px;font-size:11.5px;text-transform:uppercase;letter-spacing:0.04em;color:${INK_SOFT};border-bottom:1px solid ${LINE};">Latency</th>
+                    </tr>
+                    ${generateServerRows(servers, statusLabel, color, bg)}
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>`;
   };
 
   const htmlContent = `
     <html>
-      <body style="font-family: Arial, sans-serif; padding: 20px; background-color: #f5f5f5;">
-        <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h2 style="color: ${hasIssues ? '#f44336' : '#4caf50'}; margin-top: 0;">
-            ${hasIssues ? '🚨 Server Status Alert' : '✅ Server Health Report'}
-          </h2>
-
-          <p style="color: #666; margin-bottom: 20px;">
-            <strong>Timestamp:</strong> ${new Date().toLocaleString()}<br>
-            <strong>Total Servers Monitored:</strong> ${statuses.length}
-          </p>
-
-          ${changes.length > 0 ? `
-          <div style="background-color: ${criticalChanges.length > 0 ? '#ffebee' : degradedChanges.length > 0 ? '#fff3e0' : '#e8f5e9'}; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 5px solid ${criticalChanges.length > 0 ? '#f44336' : degradedChanges.length > 0 ? '#ff9800' : '#4caf50'};">
-            <h3 style="margin-top: 0; color: ${criticalChanges.length > 0 ? '#f44336' : degradedChanges.length > 0 ? '#ff9800' : '#4caf50'};">
-              🔔 Status Changes Detected (${changes.length})
-            </h3>
-            <table style="width: 100%; border-collapse: collapse;">
-              ${changes.map(change => `
-                <tr style="border-bottom: 1px solid #e0e0e0;">
-                  <td style="padding: 12px 8px; color: #333; font-weight: bold;">${change.name}</td>
-                  <td style="padding: 12px 8px; color: #666;">
-                    <span style="background-color: #f5f5f5; padding: 4px 8px; border-radius: 3px;">${change.previousStatus}</span>
-                    →
-                    <span style="background-color: ${change.currentStatus === 'down' ? '#f44336' : change.currentStatus === 'unhealthy' ? '#ff9800' : '#4caf50'}; color: white; padding: 4px 8px; border-radius: 3px;">${change.currentStatus}</span>
+      <body style="margin:0;padding:0;background:#f6f8fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8fb;padding:32px 0;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid ${LINE};border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:28px 32px 20px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td>
+                          <table role="presentation" cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="width:36px;height:36px;background:#2563eb;border-radius:8px;text-align:center;vertical-align:middle;color:#ffffff;font-weight:700;font-size:15px;">AH</td>
+                              <td style="padding-left:12px;">
+                                <div style="font-size:15px;font-weight:600;color:${INK};">Adhash Technologies</div>
+                                <div style="font-size:12.5px;color:${INK_SOFT};">Server Health Monitor</div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                        <td align="right">
+                          <span style="display:inline-block;padding:7px 14px;border-radius:999px;font-size:13px;font-weight:600;color:${hasIssues ? BAD : GOOD};background:${hasIssues ? BAD_BG : GOOD_BG};">${hasIssues ? 'Issues Detected' : 'All Systems Operational'}</span>
+                        </td>
+                      </tr>
+                    </table>
+                    <div style="font-size:13px;color:${INK_SOFT};margin-top:18px;">
+                      ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })} · Monitoring ${statuses.length} server(s)
+                    </div>
                   </td>
-                  <td style="padding: 12px 8px; text-align: right;">
-                    ${change.changeType === 'critical' ? '🚨 CRITICAL' : change.changeType === 'degraded' ? '⚠️ DEGRADED' : '✅ IMPROVED'}
+                </tr>
+
+                <tr>
+                  <td style="padding:0 32px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td width="25%" style="padding:6px;">
+                          <div style="border:1px solid ${LINE};border-radius:10px;padding:16px;">
+                            <div style="font-size:11.5px;color:${INK_SOFT};text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Healthy</div>
+                            <div style="font-size:26px;font-weight:700;color:${GOOD};">${healthyServers.length}</div>
+                          </div>
+                        </td>
+                        <td width="25%" style="padding:6px;">
+                          <div style="border:1px solid ${LINE};border-radius:10px;padding:16px;">
+                            <div style="font-size:11.5px;color:${INK_SOFT};text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Unhealthy</div>
+                            <div style="font-size:26px;font-weight:700;color:${WARN};">${unhealthyServers.length}</div>
+                          </div>
+                        </td>
+                        <td width="25%" style="padding:6px;">
+                          <div style="border:1px solid ${LINE};border-radius:10px;padding:16px;">
+                            <div style="font-size:11.5px;color:${INK_SOFT};text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Down</div>
+                            <div style="font-size:26px;font-weight:700;color:${BAD};">${downServers.length}</div>
+                          </div>
+                        </td>
+                        <td width="25%" style="padding:6px;">
+                          <div style="border:1px solid ${LINE};border-radius:10px;padding:16px;">
+                            <div style="font-size:11.5px;color:${INK_SOFT};text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px;">Total</div>
+                            <div style="font-size:26px;font-weight:700;color:${INK};">${statuses.length}</div>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
-              `).join('')}
-            </table>
-          </div>
-          ` : ''}
 
-          <div style="background-color: #f9f9f9; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="margin-top: 0; color: #333;">Summary</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 8px 0; color: #666; width: 200px;">✅ Healthy Servers:</td>
-                <td style="padding: 8px 0; color: #4caf50; font-weight: bold; font-size: 18px;">${healthyServers.length}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #666;">⚠️ Unhealthy Servers:</td>
-                <td style="padding: 8px 0; color: #ff9800; font-weight: bold; font-size: 18px;">${unhealthyServers.length}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; color: #666;">🚨 Down/Inactive Servers:</td>
-                <td style="padding: 8px 0; color: #f44336; font-weight: bold; font-size: 18px;">${downServers.length}</td>
-              </tr>
-            </table>
-          </div>
+                ${changes.length > 0 ? `
+                <tr>
+                  <td style="padding:20px 32px 0;">
+                    <div style="background:${criticalChanges.length > 0 ? BAD_BG : degradedChanges.length > 0 ? WARN_BG : GOOD_BG};border-left:4px solid ${criticalChanges.length > 0 ? BAD : degradedChanges.length > 0 ? WARN : GOOD};border-radius:8px;padding:16px 18px;">
+                      <div style="font-size:13.5px;font-weight:600;color:${criticalChanges.length > 0 ? BAD : degradedChanges.length > 0 ? WARN : GOOD};margin-bottom:10px;">Status Changes Detected (${changes.length})</div>
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                        ${changes.map(change => `
+                        <tr>
+                          <td style="padding:6px 0;font-size:13px;font-weight:600;color:${INK};">${escapeHtml(change.name)}</td>
+                          <td style="padding:6px 0;font-size:12.5px;color:${INK_SOFT};">
+                            ${change.previousStatus} → <strong style="color:${change.currentStatus === 'down' ? BAD : change.currentStatus === 'unhealthy' ? WARN : GOOD};">${change.currentStatus}</strong>
+                          </td>
+                          <td style="padding:6px 0;font-size:12px;color:${INK_SOFT};text-align:right;">
+                            ${change.changeType === 'critical' ? 'CRITICAL' : change.changeType === 'degraded' ? 'DEGRADED' : 'IMPROVED'}
+                          </td>
+                        </tr>`).join('')}
+                      </table>
+                    </div>
+                  </td>
+                </tr>` : ''}
 
-          ${downServers.length > 0 ? `
-          <div style="margin: 20px 0;">
-            <h3 style="color: #f44336; margin-bottom: 10px;">🚨 Down/Inactive Servers</h3>
-            <table style="width: 100%; border-collapse: collapse; background-color: #fff;">
-              <thead>
-                <tr style="background-color: #f44336; color: white;">
-                  <th style="padding: 12px 8px; text-align: left;">Server Address</th>
-                  <th style="padding: 12px 8px; text-align: left;">Status</th>
-                  <th style="padding: 12px 8px; text-align: left;">Error</th>
-                  <th style="padding: 12px 8px; text-align: left;">Response Time</th>
+                <tr><td style="padding:0 32px;"><table role="presentation" width="100%"><tr>
+                  ${tableSection('Down / Inactive', downServers, 'DOWN', BAD, BAD, BAD_BG)}
+                  ${tableSection('Unhealthy', unhealthyServers, 'UNHEALTHY', WARN, WARN, WARN_BG)}
+                  ${tableSection('Healthy', healthyServers, 'HEALTHY', GOOD, GOOD, GOOD_BG)}
+                </tr></table></td></tr>
+
+                <tr>
+                  <td style="padding:24px 32px 28px;">
+                    <div style="border-top:1px solid ${LINE};padding-top:16px;font-size:12.5px;color:${INK_SOFT};">
+                      Automated report · Server Health Monitor · Questions: <a href="mailto:qateam@adhashtech.com" style="color:#2563eb;text-decoration:none;">qateam@adhashtech.com</a>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                ${generateServerRows(downServers, '#f44336', 'INACTIVE')}
-              </tbody>
-            </table>
-          </div>
-          ` : ''}
-
-          ${unhealthyServers.length > 0 ? `
-          <div style="margin: 20px 0;">
-            <h3 style="color: #ff9800; margin-bottom: 10px;">⚠️ Unhealthy Servers</h3>
-            <table style="width: 100%; border-collapse: collapse; background-color: #fff;">
-              <thead>
-                <tr style="background-color: #ff9800; color: white;">
-                  <th style="padding: 12px 8px; text-align: left;">Server Address</th>
-                  <th style="padding: 12px 8px; text-align: left;">Status</th>
-                  <th style="padding: 12px 8px; text-align: left;">Status Code</th>
-                  <th style="padding: 12px 8px; text-align: left;">Response Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${generateServerRows(unhealthyServers, '#ff9800', 'ACTIVE')}
-              </tbody>
-            </table>
-          </div>
-          ` : ''}
-
-          ${healthyServers.length > 0 ? `
-          <div style="margin: 20px 0;">
-            <h3 style="color: #4caf50; margin-bottom: 10px;">✅ Healthy Servers</h3>
-            <table style="width: 100%; border-collapse: collapse; background-color: #fff;">
-              <thead>
-                <tr style="background-color: #4caf50; color: white;">
-                  <th style="padding: 12px 8px; text-align: left;">Server Address</th>
-                  <th style="padding: 12px 8px; text-align: left;">Status</th>
-                  <th style="padding: 12px 8px; text-align: left;">Status Code</th>
-                  <th style="padding: 12px 8px; text-align: left;">Response Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${generateServerRows(healthyServers, '#4caf50', 'ACTIVE')}
-              </tbody>
-            </table>
-          </div>
-          ` : ''}
-
-
-          <hr style="margin: 20px 0; border: none; border-top: 1px solid #e0e0e0;">
-          <p style="color: #999; font-size: 12px; margin-bottom: 0;">
-            This is an automated alert from your Server Health Monitor.<br>
-            Monitoring ${statuses.length} server(s)
-          </p>
-        </div>
+              </table>
+            </td>
+          </tr>
+        </table>
       </body>
     </html>
   `;
-
-  // Generate modern HTML report
-  const modernReport = generateModernHTMLReport(statuses);
-  const reportFileName = `server-health-report-${new Date().toISOString().split('T')[0]}.html`;
-  const reportPath = path.join(process.cwd(), 'reports', reportFileName);
-
-  // Create reports directory if it doesn't exist
-  const reportsDir = path.join(process.cwd(), 'reports');
-  if (!fs.existsSync(reportsDir)) {
-    fs.mkdirSync(reportsDir, { recursive: true });
-  }
-
-  // Save the HTML report to file
-  fs.writeFileSync(reportPath, modernReport, 'utf-8');
-  console.log(`   📄 HTML report saved: ${reportPath}`);
 
   const mailOptions = {
     from: config.user,
@@ -834,8 +954,8 @@ async function sendMultiServerEmail(config: EmailConfig, statuses: ServerStatus[
     html: htmlContent,
     attachments: [
       {
-        filename: reportFileName,
-        path: reportPath,
+        filename: report.reportFileName,
+        path: report.reportPath,
         contentType: 'text/html'
       }
     ]
@@ -844,7 +964,7 @@ async function sendMultiServerEmail(config: EmailConfig, statuses: ServerStatus[
   try {
     await transporter.sendMail(mailOptions);
     console.log(`   📧 Email alert sent to: ${config.to}`);
-    console.log(`   📎 Attached: ${reportFileName}`);
+    console.log(`   📎 Attached: ${report.reportFileName}`);
     return true;
   } catch (error: any) {
     console.log(`   ❌ Failed to send email: ${error.message}`);
@@ -985,22 +1105,36 @@ async function main() {
   savePreviousStatus(statuses);
   console.log('');
 
-  // Immediate Slack alert when either monitored AutoChecker server goes down
+  // Generate the HTML report once so Slack and email can both reference it
+  const report = saveHTMLReport(statuses);
+  const reportBaseUrl = (process.env.REPORT_BASE_URL || '').trimEnd();
+  const reportBaseUrlTrimmed = reportBaseUrl.endsWith('/') ? reportBaseUrl.slice(0, -1) : reportBaseUrl;
+  const reportUrl = reportBaseUrlTrimmed ? `${reportBaseUrlTrimmed}/latest.html` : undefined;
+
   const slackBotToken = process.env.SLACK_BOT_TOKEN || '';
   const slackChannel = process.env.SLACK_CHANNEL || '';
+  const slackConfigured = Boolean(slackBotToken && slackChannel);
+
+  if (!slackConfigured) {
+    console.warn('⚠️  SLACK_BOT_TOKEN / SLACK_CHANNEL is not configured - skipping Slack notifications');
+  }
+
+  // Immediate Slack alert when either monitored AutoChecker server goes down
   const newlyDownAutoCheckerServers = statuses.filter(s =>
     !s.isActive &&
     AUTOCHECKER_ALERT_IPS.some(ip => s.url.includes(ip)) &&
     changes.some(c => c.url === s.url && c.currentStatus === 'down')
   );
 
-  if (newlyDownAutoCheckerServers.length > 0) {
-    if (slackBotToken && slackChannel) {
-      console.log('💬 Sending Slack alert for AutoChecker server(s) down...');
-      await sendSlackAutoCheckerDownAlert(slackBotToken, slackChannel, newlyDownAutoCheckerServers);
-    } else {
-      console.warn('⚠️  SLACK_BOT_TOKEN / SLACK_CHANNEL is not configured - skipping Slack alert');
-    }
+  if (newlyDownAutoCheckerServers.length > 0 && slackConfigured) {
+    console.log('💬 Sending Slack alert for AutoChecker server(s) down...');
+    await sendSlackAutoCheckerDownAlert(slackBotToken, slackChannel, newlyDownAutoCheckerServers, reportUrl);
+  }
+
+  // Full status report posted to Slack alongside the email report
+  if (slackConfigured) {
+    console.log('💬 Sending Slack health report...');
+    await sendSlackHealthReport(slackBotToken, slackChannel, statuses, reportUrl);
   }
 
   // Send email based on mode
@@ -1016,7 +1150,7 @@ async function main() {
   }
 
   console.log('📧 Sending email report...');
-  const emailSent = await sendMultiServerEmail(emailConfig, statuses, changes);
+  const emailSent = await sendMultiServerEmail(emailConfig, statuses, report, changes);
 
   if (emailSent) {
     console.log('✨ Email sent successfully!\n');

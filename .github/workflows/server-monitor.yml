@@ -11,7 +11,9 @@ on:
 jobs:
   monitor-servers:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -52,6 +54,7 @@ jobs:
           REQUIRED_SERVER_URLS=https://20.1.198.58/|AutoChecker - Production Server,https://www.ddphub.ai/|DDP URL,https://twfnwlccyudfgqjmmdva.supabase.co/|DDP API
           CHECK_INTERVAL_MINUTES=60
           SEND_ONLY_ON_CHANGE=true
+          REPORT_BASE_URL=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
           EOF
 
       - name: Run server health check
@@ -65,6 +68,14 @@ jobs:
         with:
           path: previous-status.json
           key: server-status-latest
+
+      - name: Publish report to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./reports
+          keep_files: true
 
       - name: Upload logs (if any)
         if: always()
